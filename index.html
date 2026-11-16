@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Hidrocarburos - Buscador de Carburantes API REST</title>
+  
+  <!-- React 18 & Babel para ejecución directa en navegador o GitHub Pages -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0f4c81;
+      --primary-hover: #0a355c;
+      --secondary: #00a896;
+      --accent: #f39c12;
+      --bg-body: #f4f7f9;
+      --bg-card: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --success-bg: #dcfce7;
+      --success-text: #166534;
+      --danger-bg: #fee2e2;
+      --danger-text: #991b1b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, var(--primary), #1b6ca8);
+      color: white;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; }
+    header p { font-size: 0.9rem; opacity: 0.9; margin-top: 0.25rem; }
+
+    /* Layout Principal: Dos secciones diferenciadas (Entrada vs Salida) */
+    .main-container {
+      max-width: 1320px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .main-container { grid-template-columns: 1fr; }
+    }
+
+    /* Sección de Entrada (Panel de Control) */
+    .input-panel {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-main); }
+    .form-control {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus { outline: none; border-color: var(--primary); }
+
+    .coords-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+    .btn {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.99); }
+    .btn-geo { background-color: var(--secondary); color: white; margin-bottom: 0.75rem; }
+    .btn-geo:hover { background-color: #008c7d; }
+    .btn-primary { background-color: var(--primary); color: white; }
+    .btn-primary:hover { background-color: var(--primary-hover); }
+
+    .checkbox-inline { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; }
+
+    /* Sección de Salida (Resultados) */
+    .output-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .highlights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .highlight-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 1.25rem;
+      border-left: 5px solid var(--primary);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+    .highlight-card.cheapest { border-left-color: var(--secondary); }
+    .highlight-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+    .highlight-card.cheapest .highlight-badge { background: #ccfbf1; color: #0f766e; }
+
+    .stations-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1rem; }
+    .station-card {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .station-card:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0,0,0,0.06); }
+
+    .station-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .station-brand { font-weight: 700; font-size: 1.05rem; color: var(--primary); }
+    .status-pill { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 6px; white-space: nowrap; }
+    .status-open { background: var(--success-bg); color: var(--success-text); }
+    .status-closed { background: var(--danger-bg); color: var(--danger-text); }
+
+    .station-address { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .station-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+      margin-top: auto;
+    }
+    .price-tag { font-size: 1.25rem; font-weight: 800; color: var(--text-main); }
+    .distance-tag { font-size: 0.85rem; font-weight: 600; color: var(--primary); background: #eff6ff; padding: 0.25rem 0.6rem; border-radius: 6px; }
+
+    .loader-box, .empty-box, .error-box {
+      background: var(--bg-card);
+      padding: 2.5rem;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .error-box { border-color: #fca5a5; color: var(--danger-text); background: #fef2f2; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // =========================================================================
+    // UTILIDADES DE PROCESAMIENTO GEOESPACIAL Y DE HORARIOS
+    // =========================================================================
+
+    /**
+     * Calcula la distancia en km entre dos puntos geográficos mediante Haversine
+     */
+    function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radio de la Tierra en km
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) *
+          Math.cos(lat2 * (Math.PI / 180)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    /**
+     * Evalúa si una estación de servicio está abierta en el momento actual
+     * interpretando el formato textual de la API del Ministerio (ej. "L-D: 24H", "L-V: 06:00-22:00")
+     */
+    function evaluarEstadoApertura(horarioStr) {
+      if (!horarioStr) return { abierta: false, texto: "Horario no disponible" };
+      const upper = horarioStr.toUpperCase().trim();
+      if (upper.includes("24H")) return { abierta: true, texto: "Abierta (24H)" };
+
+      const ahora = new Date();
+      const diaSemana = ahora.getDay(); // 0 = Domingo, 1 = Lunes ... 6 = Sábado
+      const minutosActuales = ahora.getHours() * 60 + ahora.getMinutes();
+
+      // Extracción de franjas horarias HH:MM-HH:MM
+      const regexFranja = /(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/g;
+      const tramos = upper.split(";");
+
+      for (const tramo of tramos) {
+        let aplicaHoy = false;
+        if (tramo.includes("L-D")) aplicaHoy = true;
+        else if (tramo.includes("L-S") && diaSemana >= 1 && diaSemana <= 6) aplicaHoy = true;
+        else if (tramo.includes("L-V") && diaSemana >= 1 && diaSemana <= 5) aplicaHoy = true;
+        else if (tramo.includes("S-D") && (diaSemana === 0 || diaSemana === 6)) aplicaHoy = true;
+        else if (!tramo.match(/[LMCJVSD]/)) aplicaHoy = true; // Franja genérica sin prefijo de día
+
+        if (aplicaHoy) {
+          let match;
+          while ((match = regexFranja.exec(tramo)) !== null) {
+            const inicio = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+            let fin = parseInt(match[3], 10) * 60 + parseInt(match[4], 10);
+            if (fin === 0) fin = 1440; // 00:00 equivale al final del día
+            if (fin < inicio) {
+              // Horario nocturno que cruza medianoche
+              if (minutosActuales >= inicio || minutosActuales <= fin) {
+                return { abierta: true, texto: "Abierta ahora" };
+              }
+            } else if (minutosActuales >= inicio && minutosActuales <= fin) {
+              return { abierta: true, texto: "Abierta ahora" };
+            }
+          }
+        }
+      }
+      return { abierta: false, texto: "Cerrada actualmente" };
+    }
+
+    // =========================================================================
+    // COMPONENTE 1: Cabecera Institucional (HeaderComponent)
+    // =========================================================================
+    function HeaderComponent({ fechaActualizacion, totalEstaciones }) {
+      return (
+        <header>
+          <h1>Portal de Gestión de Hidrocarburos — Localizador de Carburantes</h1>
+          <p>
+            Datos oficiales en tiempo real (API REST Ministerio para la Transición Ecológica)
+            {fechaActualizacion && ` | Actualizado: ${fechaActualizacion} (${totalEstaciones.toLocaleString()} estaciones cargadas)`}
+          </p>
+        </header>
+      );
+    }
+
+    // =========================================================================
+    // COMPONENTE 2: Interfaz de Entrada de Datos (SearchFilterForm)
+    // =========================================================================
+    function SearchFilterForm({ filtros, setFiltros, onGeolocalizar, geoStatus }) {
+      const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFiltros((prev) => ({
+          ...prev,
+          [name]: type === "checkbox" ? checked : value,
+        }));
+      };
+
+      return (
+        <section className="input-panel" aria-label="Parámetros de búsqueda">
+          <h2 className="panel-title">1. Parámetros de Entrada y Filtrado</h2>
+
+          <div className="form-group">
+            <button type="button" className="btn btn-geo" onClick={onGeolocalizar}>
+              📍 Obtener mi ubicación actual (GPS / IP)
+            </button>
+            {geoStatus && <small style={{ color: "#0f4c81", display: "block", marginBottom: "0.5rem" }}>{geoStatus}</small>}
+          </div>
+
+          <div className="coords-grid">
+            <div className="form-group">
+              <label htmlFor="lat">Latitud</label>
+              <input
+                id="lat"
+                name="lat"
+                type="number"
+                step="any"
+                className="form-control"
+                value={filtros.lat}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="lon">Longitud</label>
+              <input
+                id="lon"
+                name="lon"
+                type="number"
+                step="any"
+                className="form-control"
+                value={filtros.lon}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="radioKm">Radio de búsqueda: <strong>{filtros.radioKm} km</strong></label>
+            <input
+              id="radioKm"
+              name="radioKm"
+              type="range"
+              min="1"
+              max="50"
+              className="form-control"
+              value={filtros.radioKm}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="carburante">Tipo de carburante</label>
+            <select
+              id="carburante"
+              name="carburante"
+              className="form-control"
+              value={filtros.carburante}
+              onChange={handleChange}
+            >
+              <option value="Precio Gasolina 95 E5">Gasolina 95 E5</option>
+              <option value="Precio Gasoleo A">Gasóleo A (Diésel)</option>
+              <option value="Precio Gasolina 98 E5">Gasolina 98 E5</option>
+              <option value="Precio Gasoleo Premium">Gasóleo Premium</option>
+              <option value="Precio Gases licuados del petróleo">GLP (Autogás)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="modoMarca">Filtrado por empresa suministradora</label>
+            <select
+              id="modoMarca"
+              name="modoMarca"
+              className="form-control"
+              value={filtros.modoMarca}
+              onChange={handleChange}
+            >
+              <option value="TODOS">Todas las marcas</option>
+              <option value="WHITELIST">Lista Blanca (Solo incluir marcas indicadas)</option>
+              <option value="BLACKLIST">Lista Negra (Excluir marcas indicadas)</option>
+            </select>
+          </div>
+
+          {filtros.modoMarca !== "TODOS" && (
+            <div className="form-group">
+              <label htmlFor="marcasTexto">
+                Marcas (separadas por coma, ej: REPSOL, CEPSA, BP)
+              </label>
+              <input
+                id="marcasTexto"
+                name="marcasTexto"
+                type="text"
+                placeholder="Ej: REPSOL, CEPSA, SHELL"
+                className="form-control"
+                value={filtros.marcasTexto}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+
+          <div className="form-group">
+            <label className="checkbox-inline">
+              <input
+                type="checkbox"
+                name="soloAbiertas"
+                checked={filtros.soloAbiertas}
+                onChange={handleChange}
+              />
+              Mostrar únicamente gasolineras abiertas ahora
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="ordenarPor">Ordenar resultados por</label>
+            <select
+              id="ordenarPor"
+              name="ordenarPor"
+              className="form-control"
+              value={filtros.ordenarPor}
+              onChange={handleChange}
+            >
+              <option value="distancia">Menor distancia (Más cercana)</option>
+              <option value="precio">Menor precio (€/L)</option>
+            </select>
+          </div>
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // COMPONENTE 3: Tarjetas de Resumen Destacado (HighlightsSummary)
+    // =========================================================================
+    function HighlightsSummary({ masCercana, masBarata }) {
+      if (!masCercana && !masBarata) return null;
+
+      return (
+        <div className="highlights-grid">
+          {masCercana && (
+            <article className="highlight-card">
+              <span className="highlight-badge">📍 Gasolinera Más Cercana</span>
+              <h3>{masCercana.rotulo}</h3>
+              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0.25rem 0" }}>
+                {masCercana.direccion} ({masCercana.municipio})
+              </p>
+              <p style={{ fontWeight: "700", marginTop: "0.5rem" }}>
+                Distancia: {masCercana.distancia.toFixed(2)} km — Precio: {masCercana.precio.toFixed(3)} €/L
+              </p>
+            </article>
+          )}
+
+          {masBarata && (
+            <article className="highlight-card cheapest">
+              <span className="highlight-badge">💶 Gasolinera Más Barata en el Radio</span>
+              <h3>{masBarata.rotulo}</h3>
+              <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0.25rem 0" }}>
+                {masBarata.direccion} ({masBarata.municipio})
+              </p>
+              <p style={{ fontWeight: "700", marginTop: "0.5rem" }}>
+                Precio: {masBarata.precio.toFixed(3)} €/L — Distancia: {masBarata.distancia.toFixed(2)} km
+              </p>
+            </article>
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // COMPONENTE 4: Tarjeta Individual de Estación (StationCard)
+    // =========================================================================
+    function StationCard({ estacion }) {
+      return (
+        <article className="station-card">
+          <div>
+            <div className="station-header">
+              <span className="station-brand">{estacion.rotulo}</span>
+              <span className={`status-pill ${estacion.estado.abierta ? "status-open" : "status-closed"}`}>
+                {estacion.estado.texto}
+              </span>
+            </div>
+            <p className="station-address">
+              {estacion.direccion} — <strong>{estacion.municipio}</strong> ({estacion.provincia})
+            </p>
+            <p style={{ fontSize: "0.8rem", color: "#475569", marginBottom: "0.75rem" }}>
+              <strong>Horario:</strong> {estacion.horario}
+            </p>
+          </div>
+          <div className="station-meta">
+            <span className="price-tag">{estacion.precio.toFixed(3)} €/L</span>
+            <span className="distance-tag">{estacion.distancia.toFixed(2)} km</span>
+          </div>
+        </article>
+      );
+    }
+
+    // =========================================================================
+    // COMPONENTE RAÍZ: Orquestador de Estado y Llamada AJAX / API REST (App)
+    // =========================================================================
+    function App() {
+      const [estacionesRaw, setEstacionesRaw] = useState([]);
+      const [fechaApi, setFechaApi] = useState("");
+      const [cargando, setCargando] = useState(true);
+      const [errorApi, setErrorApi] = useState(null);
+      const [geoStatus, setGeoStatus] = useState("Coordenadas iniciales por defecto (Madrid Centro).");
+
+      // Estado de filtros (Por defecto: Puerta del Sol, Madrid)
+      const [filtros, setFiltros] = useState({
+        lat: 40.4168,
+        lon: -3.7038,
+        radioKm: 10,
+        carburante: "Precio Gasolina 95 E5",
+        modoMarca: "TODOS",
+        marcasTexto: "",
+        soloAbiertas: false,
+        ordenarPor: "distancia",
+      });
+
+      // Llamada asíncrona (AJAX / Fetch) a la API REST del Ministerio al montar el componente
+      useEffect(() => {
+        const API_URL =
+          "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
+
+        const cargarDatosAPI = async () => {
+          try {
+            setCargando(true);
+            setErrorApi(null);
+            const respuesta = await fetch(API_URL, {
+              method: "GET",
+              headers: { Accept: "application/json" },
+            });
+
+            if (!respuesta.ok) {
+              throw new Error(`Error HTTP ${respuesta.status} al conectar con el Ministerio.`);
+            }
+
+            const datosJson = await respuesta.json();
+            setFechaApi(datosJson.Fecha || "");
+            setEstacionesRaw(datosJson.ListaEESSPrecio || []);
+          } catch (err) {
+            setErrorApi(
+              "No se pudieron descargar los datos en tiempo real de la API REST del Ministerio. Verifique su conexión a Internet o las políticas CORS del navegador. Detalle: " +
+                err.message
+            );
+          } finally {
+            setCargando(false);
+          }
+        };
+
+        cargarDatosAPI();
+      }, []);
+
+      // Geolocalización HTML5
+      const handleGeolocalizar = () => {
+        if (!navigator.geolocation) {
+          setGeoStatus("Su navegador no soporta geolocalización.");
+          return;
+        }
+        setGeoStatus("Localizando dispositivo...");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setFiltros((prev) => ({
+              ...prev,
+              lat: parseFloat(pos.coords.latitude.toFixed(5)),
+              lon: parseFloat(pos.coords.longitude.toFixed(5)),
+            }));
+            setGeoStatus("Ubicación actualizada correctamente mediante GPS/Red.");
+          },
+          (err) => {
+            setGeoStatus("Permiso denegado o error de ubicación (" + err.message + ").");
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      };
+
+      // Procesamiento y filtrado reactivo de las estaciones
+      const resultadosProcesados = useMemo(() => {
+        const latUsuario = parseFloat(filtros.lat);
+        const lonUsuario = parseFloat(filtros.lon);
+        const radioMax = parseFloat(filtros.radioKm);
+
+        if (isNaN(latUsuario) || isNaN(lonUsuario)) return [];
+
+        const listaMarcas = filtros.marcasTexto
+          .split(",")
+          .map((m) => m.trim().toUpperCase())
+          .filter((m) => m.length > 0);
+
+        return estacionesRaw
+          .map((item) => {
+            // Conversión de decimales con coma española (",") a punto flotante JS (".")
+            const latEst = parseFloat((item["Latitud"] || "").replace(",", "."));
+            const lonEst = parseFloat((item["Longitud (WGS84)"] || "").replace(",", "."));
+            const precioStr = item[filtros.carburante];
+            const precioNum = precioStr ? parseFloat(precioStr.replace(",", ".")) : NaN;
+
+            if (isNaN(latEst) || isNaN(lonEst) || isNaN(precioNum) || precioNum <= 0) {
+              return null;
+            }
+
+            const distancia = calcularDistanciaHaversine(latUsuario, lonUsuario, latEst, lonEst);
+            if (distancia > radioMax) return null;
+
+            const rotulo = (item["Rótulo"] || "SIN RÓTULO").toUpperCase().trim();
+
+            // Filtrado por Lista Blanca o Lista Negra
+            if (filtros.modoMarca === "WHITELIST" && listaMarcas.length > 0) {
+              const coincide = listaMarcas.some((m) => rotulo.includes(m));
+              if (!coincide) return null;
+            } else if (filtros.modoMarca === "BLACKLIST" && listaMarcas.length > 0) {
+              const coincide = listaMarcas.some((m) => rotulo.includes(m));
+              if (coincide) return null;
+            }
+
+            const estado = evaluarEstadoApertura(item["Horario"]);
+            if (filtros.soloAbiertas && !estado.abierta) return null;
+
+            return {
+              id: item["IDEESS"],
+              rotulo,
+              direccion: item["Dirección"],
+              municipio: item["Municipio"],
+              provincia: item["Provincia"],
+              horario: item["Horario"],
+              precio: precioNum,
+              distancia,
+              estado,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) =>
+            filtros.ordenarPor === "distancia" ? a.distancia - b.distancia : a.precio - b.precio
+          );
+      }, [estacionesRaw, filtros]);
+
+      // Cálculo de estación más cercana y más barata
+      const masCercana = useMemo(() => {
+        if (resultadosProcesados.length === 0) return null;
+        return [...resultadosProcesados].sort((a, b) => a.distancia - b.distancia)[0];
+      }, [resultadosProcesados]);
+
+      const masBarata = useMemo(() => {
+        if (resultadosProcesados.length === 0) return null;
+        return [...resultadosProcesados].sort((a, b) => a.precio - b.precio)[0];
+      }, [resultadosProcesados]);
+
+      return (
+        <div>
+          <HeaderComponent
+            fechaActualizacion={fechaApi}
+            totalEstaciones={estacionesRaw.length}
+          />
+
+          <main className="main-container">
+            {/* Interfaz de Entrada */}
+            <SearchFilterForm
+              filtros={filtros}
+              setFiltros={setFiltros}
+              onGeolocalizar={handleGeolocalizar}
+              geoStatus={geoStatus}
+            />
+
+            {/* Interfaz de Salida */}
+            <section className="output-panel" aria-label="Resultados de estaciones de servicio">
+              <h2 className="panel-title">
+                2. Resultados Formateados ({resultadosProcesados.length} estaciones encontradas)
+              </h2>
+
+              {cargando && (
+                <div className="loader-box">
+                  <h3>Conectando con la API REST del Ministerio...</h3>
+                  <p>Descargando y procesando más de 11.000 estaciones terrestres en formato JSON.</p>
+                </div>
+              )}
+
+              {errorApi && (
+                <div className="error-box">
+                  <h3>Error de comunicación</h3>
+                  <p>{errorApi}</p>
+                </div>
+              )}
+
+              {!cargando && !errorApi && resultadosProcesados.length === 0 && (
+                <div className="empty-box">
+                  <h3>Sin resultados para los filtros aplicados</h3>
+                  <p>Amplíe el radio de búsqueda en kilómetros o modifique los filtros de marca y horario.</p>
+                </div>
+              )}
+
+              {!cargando && !errorApi && resultadosProcesados.length > 0 && (
+                <>
+                  <HighlightsSummary masCercana={masCercana} masBarata={masBarata} />
+                  <div className="stations-list">
+                    {resultadosProcesados.slice(0, 60).map((est) => (
+                      <StationCard key={est.id} estacion={est} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
